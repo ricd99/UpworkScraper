@@ -1,4 +1,4 @@
-# Copyright (c) 2024 roperi
+# Copyright (c) 2026 roperi
 
 import os
 import sys
@@ -138,11 +138,6 @@ def main():
             logger.info(f'Pausing for {config.VERIFICATION_PAUSE} seconds for credentials verification')
             time.sleep(config.VERIFICATION_PAUSE)
 
-            # Go to target url
-            logger.info("Redirecting to Best Matches")
-            driver.get('https://www.upwork.com/nx/find-work/best-matches')
-            time.sleep(10)
-
             # Scroll down using keyboard actions
             logger.info('Scrolling down page')
             body = driver.find_elements('xpath', "/html/body")
@@ -158,7 +153,7 @@ def main():
             wait.until(EC.visibility_of_element_located((By.TAG_NAME, "footer")))
 
             # Get all text as a wall of text (including user's mini bio on the top-right panel)
-            jobs_container_xpath = '/html/body/div[3]/div/div/div/div[2]/div/main/div[3]'
+            jobs_container_xpath = '/html/body/div[3]/div/div/div[1]/div[2]/div/div/main/div'
             jobs_containers = WebDriverWait(driver, 30).until(
                 EC.presence_of_all_elements_located((By.XPATH, jobs_container_xpath))
             )
