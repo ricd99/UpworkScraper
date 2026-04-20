@@ -3,7 +3,7 @@
 
 ---
 
-**UPDATE**: Still works as of February 2026.
+**UPDATE**: Still works as of April 2026.
 
 Upwork Scraper is designed to automate the process of scraping job postings from **Upwork Best Matches**. It utilizes Selenium for web scraping and interacts with the Upwork website to extract job details, including job titles, descriptions, and proposals. The script then stores the extracted data in a SQLite database for easy access and retrieval.
 
@@ -101,12 +101,12 @@ Inside the `settings` folder put a `config.py` file with the following content (
 # Upwork credentials
 UPWORK_USER_NAME = "John"
 UPWORK_USERNAME = "john@doe.com"
-UPWORK_PASSWORD = "p455w0rD"
+UPWORK_PASSWORD = "53cR3tp455w0rD"
 
 # Chrome driver settings
 CHROME_VERSIONS = [
-    90,
-    123,
+    146,
+    147,
 ]
 MAX_ATTEMPTS = 3
 
@@ -119,11 +119,6 @@ MAX_ATTEMPTS = 3
 * UPWORK_PASSWORD: Your Upwork password. 
 * CHROME_VERSIONS: The Chrome versions installed in your system. No need to put the whole version number. So if your Chrome version is 90.0.4430.212, you just need to put 90 in the list. 
 * MAX_ATTEMPTS: Max number of attempts Selenium will try to launch the Chromedriver.
-
-
-### Error: from session not created: This version of ChromeDriver only supports Chrome version 96 # or what ever version
-
-This is an [annoying bug](https://github.com/ultrafunkamsterdam/undetected-chromedriver) because you might encounter it at random times. Sometimes a Chrome version works, sometimes it doesn't. To get around this increase the MAX_ATTEMPTS value or try installing in your system and adding another Chrome version to the CHROME_VERSIONS list. Upwork Scraper will attempt to login with all versions available until it reaches max number of attempts.
 
 
 ## Usage
@@ -202,6 +197,6 @@ Contributions are welcome! If you encounter any issues or have suggestions for i
 
 
 ## Copyright and licenses
-Copyright © 2024 roperi. 
+Copyright © 2026 roperi. 
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
