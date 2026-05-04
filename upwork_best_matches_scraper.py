@@ -1,5 +1,5 @@
 # Copyright (c) 2026 roperi
-
+ 
 import os
 import sys
 import time
@@ -13,10 +13,10 @@ from selenium.webdriver.common.keys import Keys
 from utils.job_helpers import parse_job_details
 from utils.database import create_db, connect_to_db
 from settings import config
-
-
+ 
+ 
 # LOGGING
-
+ 
 # Create logger
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -39,10 +39,10 @@ ch.setFormatter(formatter)
 # add handlers to logger
 logger.addHandler(fh)
 logger.addHandler(ch)
-
-
+ 
+ 
 # FUNCTIONS
-
+ 
 def get_driver_with_retry(chrome_versions, max_attempts=3):
     for attempt in range(max_attempts):
         for chrome_version in chrome_versions:
@@ -53,19 +53,19 @@ def get_driver_with_retry(chrome_versions, max_attempts=3):
                 options.headless = False
                 return uc.Chrome(options=options, version_main=chrome_version)
             except Exception as e:
-                logger.error(f"Failed to launch Chrome driver with version {chrome_version}. Retrying...")
+                logger.error(f"Failed to launch Chrome driver with version {chrome_version}. Error: {e}", exc_info=True)
     logger.error(f"All attempts failed for all Chrome versions within {max_attempts} attempts. Unable to launch "
                  f"Chrome driver.")
     return None
-
-
+ 
+ 
 def main():
     """
     Main function for scraping job postings from Upwork.
-
+ 
     Returns:
         bool: True if the scraping process completed successfully, False otherwise.
-
+ 
     This function connects to the database, configures the web driver, logs into site, and then starts an infinite loop
     to continuously scrape job postings. It scrolls down the page to load more job postings, extracts job details, and
     stores them in the database. It refreshes the browser after each scraping cycle and pauses for the specified number
@@ -75,26 +75,26 @@ def main():
     try:
         # Connect to database
         conn, cursor = connect_to_db()
-
+ 
         # Create table (if it does not exist)
         create_db(conn, cursor)
-
+ 
         # Configure the undetected_chromedriver options
         logger.info('Launching driver')
         driver = get_driver_with_retry(chrome_versions=config.CHROME_VERSIONS, max_attempts=config.MAX_ATTEMPTS)
-
+ 
         if driver:
             # Login
             user_login_page = 'https://www.upwork.com/ab/account-security/login'
             logger.info(f'Navigating to `{user_login_page}`')
             driver.get(user_login_page)
             logger.info('Pausing for windows to fully load')
-            time.sleep(25)
-
+            time.sleep(5)
+ 
             logger.info('Switching to main window')
             all_windows = driver.window_handles
             driver.switch_to.window(all_windows[-1])
-
+ 
             logger.info('Submitting username')
             username_input = WebDriverWait(driver, 30).until(
                 EC.visibility_of_element_located(
@@ -104,7 +104,7 @@ def main():
                 )
             )
             username_input.send_keys(config.UPWORK_USERNAME)
-
+ 
             username_field = WebDriverWait(driver, 30).until(
                 EC.visibility_of_element_located(
                     (By.XPATH,
@@ -121,23 +121,23 @@ def main():
                      "/html/body/div[3]/div/div/div/main/div/div/div[2]/div[2]/div/form/div/div/div[1]/div[3]/div/div/"
                      "div/input")
                 )
-
+ 
             )
             password_input.send_keys(config.UPWORK_PASSWORD)
-
+ 
             password_field = WebDriverWait(driver, 30).until(
                 EC.visibility_of_element_located(
                     (By.XPATH,
                      "/html/body/div[3]/div/div/div/main/div/div/div[2]/div[2]/div/form/div/div/div[1]/div[3]/div/div/"
                      "div/input")
                 )
-
+ 
             )
             password_field.send_keys(Keys.ENTER)
-
+ 
             logger.info(f'Pausing for {config.VERIFICATION_PAUSE} seconds for credentials verification')
             time.sleep(config.VERIFICATION_PAUSE)
-
+ 
             # Scroll down using keyboard actions
             logger.info('Scrolling down page')
             body = driver.find_elements('xpath', "/html/body")
@@ -145,13 +145,13 @@ def main():
                 body[-1].send_keys(Keys.PAGE_DOWN)
                 time.sleep(2)
             driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-
+ 
             # Wait for footer to load
             timeout_wait = 120
             logger.info(f'Waiting for page footer (max {timeout_wait} seconds)...')
             wait = WebDriverWait(driver, timeout_wait)
             wait.until(EC.visibility_of_element_located((By.TAG_NAME, "footer")))
-
+ 
             # Get all text as a wall of text (including user's mini bio on the top-right panel)
             jobs_container_xpath = '/html/body/div[3]/div/div/div[1]/div[2]/div/div/main/div'
             jobs_containers = WebDriverWait(driver, 30).until(
@@ -160,16 +160,33 @@ def main():
             if not jobs_containers:
                 logger.error("No jobs container found; stopping this run.")
                 return False
-
+ 
             # Get all text as a wall of text (including user's mini bio on the top-right panel)
-            text = jobs_containers[-1].text
+            text = driver.execute_script("return arguments[0].innerText;", jobs_containers[-1])
+            logger.debug(f'Occurrences of "Posted" in raw text: {text.count("Posted")}')
+            with open("debug_text.txt", "w") as f:
+                f.write(text)
+
             # Get rid of the right panel
             text_1 = text.split(config.UPWORK_USER_NAME)[0]
+            logger.debug(f'After username split — "Posted" count: {text_1.count("Posted")}') #TODO: If more urls than text is eing collected, try uncommenting these 4 lines
+            with open('debug_text_1.txt', 'w') as f:
+                f.write(text_1)
+                
             # Get rid of the top panel
-            text_2 = text_1.split('Ordered by most relevant.')[-1]
+            text_2 = text.split('Ordered by most relevant.')[-1]
+            logger.debug(f'After "Ordered by" split — "Posted" count: {text_2.count("Posted")}')
+            with open('debug_text_2.txt', 'w') as f:
+                f.write(text_2)
+
             # Get all job posts
             job_posts = text_2.split('Posted')[1:]
-
+            with open('debug_job_posts.txt', 'w') as f:
+                for i, post in enumerate(job_posts):
+                    f.write(f'--- JOB {i+1} ---\n')
+                    f.write(post)
+                    f.write('\n\n')
+ 
             # Get urls
             job_links = driver.find_elements("xpath", "//a[contains(@href, '/jobs/')]")
             job_urls = [link.get_attribute("href") for link in job_links
@@ -177,53 +194,82 @@ def main():
                         and 'search/saved' not in link.get_attribute("href")
                         and 'search/jobs/saved' not in link.get_attribute("href")
                         ]
-
+ 
+            #Log the counts of each list so mismatches are immediately visible in the log
+            logger.info(f'Found {len(job_posts)} job post(s) from page text')
+            logger.info(f'Found {len(job_urls)} job URL(s) from page links')
+ 
+            if len(job_posts) != len(job_urls):
+                logger.warning(
+                    f'Mismatch: {len(job_posts)} job posts vs {len(job_urls)} job URLs. '
+                    f'Only {min(len(job_posts), len(job_urls))} jobs will be saved. '
+                    f'The remaining {abs(len(job_posts) - len(job_urls))} will be skipped.'
+                )
+ 
             # Scrape jobs
-            print('Scraping jobs...')
-            counter = 0
-            for j in job_posts:
-                job_details = parse_job_details(j.split('\n'))
-                # Check if the job ID already exists in the database
-                job_id = job_details.get('job_id')
-                job_url = job_urls[counter].split('/?')[0]
-                cursor.execute('SELECT COUNT(*) FROM jobs WHERE job_id = ?', (job_id,))
-                count = cursor.fetchone()[0]
-                if count > 0:
-                    logger.info(f'    Job ID #{job_id} already exists. Updating job proposals...')
-                    updated_proposals = job_details.get('job_proposals')
-                    # Update the job_proposals column
-                    cursor.execute('UPDATE jobs SET job_proposals = ?, updated_at = ? WHERE job_id = ?', (
-                        updated_proposals, datetime.now(), job_id))
-                else:
-                    posted_date = job_details.get('posted_date')
-                    job_title = job_details.get('job_title')
-                    job_description = job_details.get('job_description')
-                    job_tags = job_details.get('job_tags')
-                    job_proposals = job_details.get('job_proposals')
-                    logger.info(f'Storing `{job_details.get("job_title")}` job in database')
-                    cursor.execute(
-                        'INSERT INTO jobs (job_id, job_url, job_title, posted_date, job_description, job_tags, '
-                        'job_proposals) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        (job_id, job_url, job_title, posted_date, job_description, job_tags, job_proposals))
-                conn.commit()
-                counter += 1
-
+            logger.info('Scraping jobs...')
+            saved_count = 0
+            skipped_count = 0
+ 
+            for j, job_url in zip(job_posts, job_urls):
+                try:
+                    job_details = parse_job_details(j.split('\n'))
+                    job_id = job_details.get('job_id')
+                    job_url = job_url.split('/?')[0]
+ 
+                    # Skip if job_id is missing — can't safely store or deduplicate without it
+                    if not job_id:
+                        logger.warning(f'Skipping job — no job_id found in parsed details: {job_details}')
+                        skipped_count += 1
+                        continue
+ 
+                    cursor.execute('SELECT COUNT(*) FROM jobs WHERE job_id = ?', (job_id,))
+                    count = cursor.fetchone()[0]
+ 
+                    if count > 0:
+                        logger.info(f'Job ID #{job_id} already exists. Updating job proposals...')
+                        updated_proposals = job_details.get('job_proposals')
+                        cursor.execute('UPDATE jobs SET job_proposals = ?, updated_at = ? WHERE job_id = ?', (
+                            updated_proposals, datetime.now(), job_id))
+                    else:
+                        posted_date = job_details.get('posted_date')
+                        job_title = job_details.get('job_title')
+                        job_description = job_details.get('job_description')
+                        job_tags = job_details.get('job_tags')
+                        job_proposals = job_details.get('job_proposals')
+                        logger.info(f'Storing job "{job_title}" (ID: {job_id}) in database')
+                        cursor.execute(
+                            'INSERT INTO jobs (job_id, job_url, job_title, posted_date, job_description, job_tags, '
+                            'job_proposals) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                            (job_id, job_url, job_title, posted_date, job_description, job_tags, job_proposals))
+ 
+                    conn.commit()
+                    saved_count += 1
+ 
+                # Per-job exception handling — a bad job no longer crashes the entire loop.
+                except Exception as e:
+                    logger.error(f'Failed to process job (URL: {job_url}). Error: {e}', exc_info=True)
+                    skipped_count += 1
+                    continue
+ 
+            logger.info(f'Scraping complete. Saved/updated: {saved_count}, Skipped: {skipped_count}')
+ 
             # Close the browser
             logger.info('Closing browser...')
             driver.quit()
-
+ 
         else:
             logger.error("Couldn't load driver")
-
+ 
     except Exception as e:
-        logger.error(e)
+        logger.error(f'Unhandled exception in main(): {e}', exc_info=True)
         return False
-
+ 
     finally:
         logger.info('Closing connection to database')
         cursor.close()
         conn.close()
-
-
+ 
+ 
 if __name__ == '__main__':
     main()
