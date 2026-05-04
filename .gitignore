@@ -127,3 +127,6 @@ atlassian-ide-plugin.xml
 # Others
 *.swp
 datasets/
+
+# debug text files
+debug_*
