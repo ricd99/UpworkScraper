@@ -169,7 +169,7 @@ def main():
 
             # Get rid of the right panel
             text_1 = text.split(config.UPWORK_USER_NAME)[0]
-            logger.debug(f'After username split — "Posted" count: {text_1.count("Posted")}') #TODO: If more urls than text is eing collected, try uncommenting these 4 lines
+            logger.debug(f'After username split — "Posted" count: {text_1.count("Posted")}') #TODO: If more urls than text is being collected, try uncommenting these 4 lines
             with open('debug_text_1.txt', 'w') as f:
                 f.write(text_1)
                 
@@ -246,7 +246,7 @@ def main():
                     conn.commit()
                     saved_count += 1
  
-                # Per-job exception handling — a bad job no longer crashes the entire loop.
+                # Per-job exception handling.
                 except Exception as e:
                     logger.error(f'Failed to process job (URL: {job_url}). Error: {e}', exc_info=True)
                     skipped_count += 1
